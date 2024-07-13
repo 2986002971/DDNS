@@ -17,7 +17,7 @@ import argparse
 
 def DDNS(use_v6):
     client = Utils.getAcsClient()
-    recordId = Utils.getRecordId(Utils.getConfigJson().get('Second-level-domain'))
+    recordIds = Utils.getRecordId(Utils.getConfigJson().get('Second-level-domain'))
     if use_v6:
         ips = Utils.getRealIPv6()
         type = 'AAAA'
@@ -31,20 +31,27 @@ def DDNS(use_v6):
     request.set_version('2015-01-09')
     request.set_action_name('UpdateDomainRecord')
 
-    for ip in ips:
-        try:
-            request.add_query_param('RecordId', recordId)
-            request.add_query_param('RR', Utils.getConfigJson().get('Second-level-domain'))
-            request.add_query_param('Type', type)
-            request.add_query_param('Value', ip)
-            response = client.do_action_with_exception(request)
-            print(f"更新IP地址 {ip} 成功！")
-        except (ServerException, ClientException) as reason:
-            print(f"更新IP地址 {ip} 失败！")
-            print("原因为:", reason.get_error_msg())
-            print("错误码：", reason.get_error_code())
-            print("可参考: https://help.aliyun.com/document_detail/29774.html")
-            print("或阿里云帮助文档")
+    used_ips = set()    # 用于跟踪已使用过的IP地址
+
+    for recordId in recordIds:
+        for ip in ips:
+            if ip in used_ips:
+                continue  
+            try:
+                request.add_query_param('RecordId', recordId)
+                request.add_query_param('RR', Utils.getConfigJson().get('Second-level-domain'))
+                request.add_query_param('Type', type)
+                request.add_query_param('Value', ip)
+                used_ips.add(ip)                  
+                response = client.do_action_with_exception(request)
+                print(f"更新RecordId {recordId} 的IP地址 {ip} 成功！")
+                break  
+            except (ServerException, ClientException) as reason:
+                print(f"更新RecordId {recordId} 的IP地址 {ip} 失败！")
+                print("原因为:", reason.get_error_msg())
+                print("错误码：", reason.get_error_code())
+                print("可参考: https://help.aliyun.com/document_detail/29774.html")
+                print("或阿里云帮助文档")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='DDNS')
